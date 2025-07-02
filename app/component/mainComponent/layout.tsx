@@ -1,12 +1,13 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { House, Video, BookOpenCheck, ArrowLeftRight, BookCheck, CircleUserRound } from 'lucide-react';
+import { Luggage, RefreshCwOff, BookOpenCheck, ArrowLeftRight, BookCheck, CircleUserRound } from 'lucide-react';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Layout, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import logo from "./../../../public/logo.jpeg"
 import Image from 'next/image';
 import Home from './Home';
+import CancelSell from './CancelSell';
 
 const { Header, Sider, Content } = Layout;
 
@@ -59,13 +60,13 @@ const DashboardLayout = () => {
   const menuItems = [
     {
       key: '1',
-      icon: <House size={20} />,
-      label: 'Home',
+      icon: <Luggage size={20}/>,
+      label: 'Sell Product',
     },
     {
       key: '2',
-      icon: <Video size={20}/>,
-      label: 'Stock Report',
+      icon: <RefreshCwOff size={20}/>,
+      label: 'Cancel Sell',
     },
     {
       key: '3',
@@ -172,7 +173,7 @@ const DashboardLayout = () => {
 
           <div className="ml-4 text-lg font-medium">
             {selectedKey === '1' ? 'Home' : 
-             selectedKey === '2' ? 'Stock Report' :
+             selectedKey === '2' ? 'sell Cancel' :
              selectedKey === '3' ? 'Reset Weekly' :
              selectedKey === '4' ? 'Add Product' :
              selectedKey === '5' ? 'Exam' :
@@ -190,10 +191,10 @@ const DashboardLayout = () => {
           }}
         >
           {selectedKey === '1' ? <Home /> :
-           selectedKey === '2' ? <StockReport /> :
+           selectedKey === '2' ? <CancelSell/> :
            selectedKey === '3' ? <Home /> :
-           selectedKey === '4' ? <AddProduct /> :
-           <HistoriesReport />}
+           selectedKey === '4' ? <Home /> :
+           <Home />}
         </Content>
       </Layout>
     </Layout>
