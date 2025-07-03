@@ -1,6 +1,6 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { Luggage, RefreshCwOff, Proportions, ArrowLeftRight, BookCheck, CircleUserRound } from 'lucide-react';
+import { Luggage, RefreshCwOff, Proportions, HandCoins, BookCheck, CircleUserRound } from 'lucide-react';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Layout, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
@@ -9,6 +9,7 @@ import Image from 'next/image';
 import Home from './Home';
 import CancelSell from './CancelSell';
 import SellReport from './SellReport';
+import CreditPayment from './CreadPayment';
 
 const { Header, Sider, Content } = Layout;
 
@@ -76,14 +77,9 @@ const DashboardLayout = () => {
     },
     {
       key: '4',
-      icon: <ArrowLeftRight size={20} />,
-      label: 'Add Product',
+      icon: <HandCoins size={20} />,
+      label: 'Credit Payment',
     },
-    {
-      key: '5',
-      icon: <BookCheck size={20}/>,
-      label: 'History Report',
-    }
   ];
 
   const profileItem = {
@@ -176,8 +172,7 @@ const DashboardLayout = () => {
             {selectedKey === '1' ? 'Home' : 
              selectedKey === '2' ? 'sell Cancel' :
              selectedKey === '3' ? 'Sell Report' :
-             selectedKey === '4' ? 'Add Product' :
-             selectedKey === '5' ? 'Exam' :
+             selectedKey === '4' ? 'Credit Payment' :
              selectedKey === '6' ? 'Profile' : ''}
           </div>
         </Header>
@@ -194,7 +189,7 @@ const DashboardLayout = () => {
           {selectedKey === '1' ? <Home /> :
            selectedKey === '2' ? <CancelSell/> :
            selectedKey === '3' ? <SellReport /> :
-           selectedKey === '4' ? <Home /> :
+           selectedKey === '4' ? <CreditPayment /> :
            <Home />}
         </Content>
       </Layout>
