@@ -1,15 +1,14 @@
 "use client"
 import React, { useState, useEffect } from 'react';
-import { Luggage, RefreshCwOff, Proportions, HandCoins, BookCheck, CircleUserRound } from 'lucide-react';
+import { Target, RefreshCwOff, Proportions, HandCoins, BookCheck, CircleUserRound } from 'lucide-react';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Layout, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import logo from "./../../../public/logo.jpeg"
 import Image from 'next/image';
 import Home from './Home';
-import CancelSell from './CancelSell';
-import SellReport from './SellReport';
-import CreditPayment from './CreditPayment';
+import CancelSellApproval from './CancelSellApproval';
+import AddProductPage from './AddProduct';
 
 const { Header, Sider, Content } = Layout;
 
@@ -62,8 +61,8 @@ const DashboardLayout = () => {
   const menuItems = [
     {
       key: '1',
-      icon: <Luggage size={20}/>,
-      label: 'Sell Product',
+      icon: <Target size={20}/>,
+      label: 'Overview',
     },
     {
       key: '2',
@@ -79,6 +78,11 @@ const DashboardLayout = () => {
       key: '4',
       icon: <HandCoins size={20} />,
       label: 'Credit Payment',
+    },
+    {
+      key: '5',
+      icon: <BookCheck size={20} />,
+      label: 'Add Product',
     },
   ];
 
@@ -169,10 +173,11 @@ const DashboardLayout = () => {
           </button>
 
           <div className="ml-4 text-lg font-medium">
-            {selectedKey === '1' ? 'Home' : 
+            {selectedKey === '1' ? 'Overview' : 
              selectedKey === '2' ? 'sell Cancel' :
              selectedKey === '3' ? 'Sell Report' :
              selectedKey === '4' ? 'Credit Payment' :
+              selectedKey === '5' ? 'Add Product' :
              selectedKey === '6' ? 'Profile' : ''}
           </div>
         </Header>
@@ -186,10 +191,11 @@ const DashboardLayout = () => {
             minHeight: "calc(100vh - 64px - 32px)",
           }}
         >
-          {selectedKey === '1' ? <Home /> :
-           selectedKey === '2' ? <CancelSell/> :
-           selectedKey === '3' ? <SellReport /> :
-           selectedKey === '4' ? <CreditPayment /> :
+          {selectedKey === '1' ? <Home setSelectedKey={setSelectedKey}/> :
+           selectedKey === '2' ? <CancelSellApproval /> :
+           selectedKey === '3' ? <Home /> :
+           selectedKey === '4' ? <Home /> :
+           selectedKey === '5' ? <AddProductPage /> :
            <Home />}
         </Content>
       </Layout>
