@@ -9,6 +9,8 @@ import Image from 'next/image';
 import Home from './Home';
 import CancelSellApproval from './CancelSellApproval';
 import AddProductPage from './AddProduct';
+import SellReportAdmin from './SellReport';
+import CreditReport from './CreditReport';
 
 const { Header, Sider, Content } = Layout;
 
@@ -77,7 +79,7 @@ const DashboardLayout = () => {
     {
       key: '4',
       icon: <HandCoins size={20} />,
-      label: 'Credit Payment',
+      label: 'Credit Report',
     },
     {
       key: '5',
@@ -176,7 +178,7 @@ const DashboardLayout = () => {
             {selectedKey === '1' ? 'Overview' : 
              selectedKey === '2' ? 'sell Cancel' :
              selectedKey === '3' ? 'Sell Report' :
-             selectedKey === '4' ? 'Credit Payment' :
+             selectedKey === '4' ? 'Credit Report' :
               selectedKey === '5' ? 'Add Product' :
              selectedKey === '6' ? 'Profile' : ''}
           </div>
@@ -193,8 +195,8 @@ const DashboardLayout = () => {
         >
           {selectedKey === '1' ? <Home setSelectedKey={setSelectedKey}/> :
            selectedKey === '2' ? <CancelSellApproval /> :
-           selectedKey === '3' ? <Home /> :
-           selectedKey === '4' ? <Home /> :
+           selectedKey === '3' ? <SellReportAdmin /> :
+           selectedKey === '4' ? <CreditReport /> :
            selectedKey === '5' ? <AddProductPage /> :
            <Home />}
         </Content>

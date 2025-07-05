@@ -275,19 +275,6 @@ const AddProductPage = () => {
           </Button>
         </Form.Item>
       </Form>
-
-      {/* <div className="mt-6">
-        <h3 className="text-lg font-bold mb-2">📦 Inventory List</h3>
-        {products.length === 0 ? (
-          <p className="text-gray-500">No products added yet.</p>
-        ) : (
-          products.map((p) => (
-            <div key={p.id} className="text-sm py-1 border-b">
-              {p.name} | {p.category} → {p.brand} | Qty: {p.quantity} | Price: {p.price} RWF | Quality: {p.quality}
-            </div>
-          ))
-        )}
-      </div> */}
     </div>
   );
 };
