@@ -1,0 +1,139 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+// Enums
+enum Role {
+  NORMAL
+  ADMIN
+}
+
+enum LoanStatus {
+  LOANED
+  RETURNED
+  OVERDUE
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+}
+
+// User & Client
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  userName  String   @unique
+  password  String
+  role      Role     @default(NORMAL)
+}
+
+model Client {
+  id        String   @id @default(uuid())
+  name      String
+  telephone String
+  cart      Json?
+  creditTrackers  CreditTracker[]
+}
+
+// Product Setup
+model Product {
+  id           String   @id @default(uuid())
+  name         String
+  categoryId   String
+  brandId      String
+  productTypeId String
+  qualityId    String
+  sizeId       String
+  unitPrice    Int
+  quantity     Int
+
+  category     Category   @relation(fields: [categoryId], references: [id])
+  brand        Brand      @relation(fields: [brandId], references: [id])
+  productType  ProductType @relation(fields: [productTypeId], references: [id])
+  quality      Quality    @relation(fields: [qualityId], references: [id])
+  size         Size       @relation(fields: [sizeId], references: [id])
+
+  stockTracker StockTracker?
+  creditTrackers CreditTracker[]
+}
+
+// Reference Tables
+model Brand {
+  id       String    @id @default(uuid())
+  name     String
+  products Product[]
+}
+
+model Category {
+  id       String    @id @default(uuid())
+  name     String
+  products Product[]
+}
+
+model ProductType {
+  id       String    @id @default(uuid())
+  name     String
+  products Product[]
+}
+
+model Quality {
+  id       String    @id @default(uuid())
+  level    String
+  products Product[]
+}
+
+model Size {
+  id       String    @id @default(uuid())
+  name     String
+  products Product[]
+}
+
+// Stock Tracking
+model StockTracker {
+  id            String   @id @default(uuid())
+  productId     String   @unique
+  product       Product  @relation(fields: [productId], references: [id])
+
+  addingTracker Json     // JSON logs of added stock
+  soldTracker   Json     // JSON logs of sold stock
+
+  createdAt     DateTime @default(now())
+}
+
+// Credit Sales
+model CreditTracker {
+  id              String         @id @default(uuid())
+  productId       String
+  product         Product        @relation(fields: [productId], references: [id])
+
+  clientId        String
+  client          Client          @relation(fields: [clientId], references: [id])
+
+  qty             Int
+  pricePerUnit    Float
+  amountPaid      Float          @default(0)
+  remainingAmount Float
+
+  creditDate      DateTime       @default(now())
+  returnDate      DateTime?
+
+  status          LoanStatus     @default(LOANED)
+  paymentStatus   PaymentStatus  @default(PENDING)
+
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
