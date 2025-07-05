@@ -1,9 +1,4 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// Prisma Client Generator
 generator client {
   provider = "prisma-client-js"
   output   = "../app/generated/prisma"
@@ -13,7 +8,8 @@ datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
-// Enums
+
+
 enum Role {
   NORMAL
   ADMIN
@@ -31,7 +27,6 @@ enum PaymentStatus {
   PAID
 }
 
-// User & Client
 model User {
   id        String   @id @default(uuid())
   name      String
@@ -42,66 +37,64 @@ model User {
 
 model Client {
   id        String   @id @default(uuid())
-  name      String
+  name      String          
   telephone String
   cart      Json?
-  creditTrackers  CreditTracker[]
-}
-
-// Product Setup
-model Product {
-  id           String   @id @default(uuid())
-  name         String
-  categoryId   String
-  brandId      String
-  productTypeId String
-  qualityId    String
-  sizeId       String
-  unitPrice    Int
-  quantity     Int
-
-  category     Category   @relation(fields: [categoryId], references: [id])
-  brand        Brand      @relation(fields: [brandId], references: [id])
-  productType  ProductType @relation(fields: [productTypeId], references: [id])
-  quality      Quality    @relation(fields: [qualityId], references: [id])
-  size         Size       @relation(fields: [sizeId], references: [id])
-
-  stockTracker StockTracker?
   creditTrackers CreditTracker[]
 }
 
-// Reference Tables
+
+model Product {
+  id            String   @id @default(uuid())
+  categoryId    String
+  brandId       String
+  productTypeId String
+  qualityId     String
+  sizeId        String
+  unitPrice     Int
+  quantity      Int
+
+  category     Category     @relation(fields: [categoryId], references: [id])
+  brand        Brand        @relation(fields: [brandId], references: [id])
+  productType  ProductType  @relation(fields: [productTypeId], references: [id])
+  quality      Quality      @relation(fields: [qualityId], references: [id])
+  size         Size         @relation(fields: [sizeId], references: [id])
+
+  stockTracker   StockTracker?
+  creditTrackers CreditTracker[]
+}
+
 model Brand {
   id       String    @id @default(uuid())
-  name     String
+  name     String    @unique
   products Product[]
 }
 
 model Category {
   id       String    @id @default(uuid())
-  name     String
+  name     String    @unique
   products Product[]
 }
 
 model ProductType {
   id       String    @id @default(uuid())
-  name     String
+  name     String    @unique
   products Product[]
 }
 
 model Quality {
   id       String    @id @default(uuid())
-  level    String
+  level    String    @unique
   products Product[]
 }
 
 model Size {
   id       String    @id @default(uuid())
-  name     String
+  name     String    @unique
   products Product[]
 }
 
-// Stock Tracking
+
 model StockTracker {
   id            String   @id @default(uuid())
   productId     String   @unique
@@ -113,14 +106,13 @@ model StockTracker {
   createdAt     DateTime @default(now())
 }
 
-// Credit Sales
 model CreditTracker {
   id              String         @id @default(uuid())
   productId       String
   product         Product        @relation(fields: [productId], references: [id])
 
   clientId        String
-  client          Client          @relation(fields: [clientId], references: [id])
+  client          Client         @relation(fields: [clientId], references: [id])
 
   qty             Int
   pricePerUnit    Float
@@ -136,4 +128,3 @@ model CreditTracker {
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
-
