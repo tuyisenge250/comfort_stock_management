@@ -13,7 +13,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ Find client
     const client = await prisma.client.findUnique({ where: { id: clientId } });
 
     if (!client) {
