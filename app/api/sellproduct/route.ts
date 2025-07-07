@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import dayjs from "dayjs";
+import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -8,72 +9,79 @@ export async function POST(req: NextRequest) {
       productId,
       soldQty,
       priceAtSale,
-      paymentMethod,
-      status,
-      clientId,
+      paymentMethod = "cash",
+      status = "complete",
+      clientId = null,
     } = await req.json();
 
-    if (!productId || !soldQty || !priceAtSale) {
+    if (!productId || typeof soldQty !== "number" || typeof priceAtSale !== "number") {
       return NextResponse.json(
-        { success: false, message: "productId, soldQty, and priceAtSale are required." },
+        { success: false, message: "productId, soldQty, and priceAtSale must be provided and numeric." },
         { status: 400 }
       );
     }
 
-    // ✅ Validate payment method
+    if (soldQty <= 0) {
+      return NextResponse.json(
+        { success: false, message: "Sold quantity must be greater than 0." },
+        { status: 400 }
+      );
+    }
+
     const allowedPayments = ["cash", "MOMO", "credit"];
-    if (paymentMethod && !allowedPayments.includes(paymentMethod)) {
+    if (!allowedPayments.includes(paymentMethod)) {
       return NextResponse.json(
-        { success: false, message: `Invalid paymentMethod. Must be one of: ${allowedPayments.join(", ")}` },
+        { success: false, message: `Invalid paymentMethod. Use one of: ${allowedPayments.join(", ")}` },
         { status: 400 }
       );
     }
 
-    // ✅ Validate status
     const allowedStatuses = ["complete", "RequestCancel", "cancel"];
-    if (status && !allowedStatuses.includes(status)) {
+    if (!allowedStatuses.includes(status)) {
       return NextResponse.json(
-        { success: false, message: `Invalid status. Must be one of: ${allowedStatuses.join(", ")}` },
+        { success: false, message: `Invalid status. Use one of: ${allowedStatuses.join(", ")}` },
         { status: 400 }
       );
     }
 
-    // 🟢 Check product
     const product = await prisma.product.findUnique({ where: { id: productId } });
     if (!product) {
       return NextResponse.json({ success: false, message: "Product not found." }, { status: 404 });
     }
 
-    // 🟢 Get or check stock tracker
+    if (product.quantity < soldQty) {
+      return NextResponse.json(
+        { success: false, message: `Not enough stock. Only ${product.quantity} available.` },
+        { status: 400 }
+      );
+    }
+
     const stockTracker = await prisma.stockTracker.findUnique({ where: { productId } });
     if (!stockTracker) {
       return NextResponse.json({ success: false, message: "StockTracker not found." }, { status: 404 });
     }
 
-    // 🕒 Today's date
     const today = dayjs().format("YYYY-MM-DD");
     const oldSoldTracker = stockTracker.soldTracker || {};
     const todayLogs = oldSoldTracker[today] || [];
 
-
     const soldEntry = {
-      qty: product.quantity,
+      id: randomUUID(),
+      initialQty: product.quantity,
       soldQty,
       remainingQty: product.quantity - soldQty,
       priceAtSale,
-      paymentMethod: paymentMethod || "cash",
-      status: status || "complete",
-      cliedId: clientId || null,
+      paymentMethod,
+      status,
+      clientId,
       updatedAt: new Date().toISOString(),
     };
 
-    // 📦 Update soldTracker JSON
     const updatedSoldTracker = {
       ...oldSoldTracker,
       [today]: [...todayLogs, soldEntry],
     };
 
-    // 🔄 Update DB
     const [updatedStock, updatedProduct] = await Promise.all([
       prisma.stockTracker.update({
         where: { productId },
@@ -82,24 +90,33 @@ export async function POST(req: NextRequest) {
       prisma.product.update({
         where: { id: productId },
         data: {
-          quantity: {
-            decrement: soldQty,
-          },
+          quantity: { decrement: soldQty },
         },
       }),
     ]);
 
+    if (clientId) {
+      await prisma.client.update({
+        where: { id: clientId },
+        data: {
+          cart: {}, // Clear the cart
+        },
+      }).catch((error) => {
+        console.error("Failed to update client cart:", error);
+      });
+    }
+
     return NextResponse.json(
       {
         success: true,
-        message: "SoldTracker updated successfully.",
-        stock: updatedStock,
+        message: "Sale recorded successfully.",
         product: updatedProduct,
+        stockTracker: updatedStock,
       },
       { status: 200 }
     );
   } catch (error) {
-    console.error("SoldTracker error:", error);
+    console.error("API Error:", error);
     return NextResponse.json(
       { success: false, error: "Internal server error." },
       { status: 500 }
