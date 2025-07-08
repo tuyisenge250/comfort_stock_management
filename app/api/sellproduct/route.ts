@@ -9,9 +9,9 @@ export async function POST(req: NextRequest) {
       productId,
       soldQty,
       priceAtSale,
-      paymentMethod = "cash",
-      status = "complete",
       clientId = null,
+      paymentBreakdown,
+      status = "complete",
     } = await req.json();
 
     if (!productId || typeof soldQty !== "number" || typeof priceAtSale !== "number") {
@@ -23,43 +23,45 @@ export async function POST(req: NextRequest) {
 
     if (soldQty <= 0) {
       return NextResponse.json(
-        { success: false, message: "Sold quantity must be greater than 0." },
+        { success: false, message: "paymentBreakdown must be provided as an object." },
         { status: 400 }
       );
     }
 
     const allowedPayments = ["cash", "MOMO", "credit"];
-    if (!allowedPayments.includes(paymentMethod)) {
-      return NextResponse.json(
-        { success: false, message: `Invalid paymentMethod. Use one of: ${allowedPayments.join(", ")}` },
-        { status: 400 }
-      );
+    const paymentKeys = Object.keys(paymentBreakdown);
+
+    for (const method of paymentKeys) {
+      if (!allowedPayments.includes(method)) {
+        return NextResponse.json(
+          { success: false, message: `Invalid payment method "${method}". Use only: ${allowedPayments.join(", ")}` },
+          { status: 400 }
+        );
+      }
     }
 
-    const allowedStatuses = ["complete", "RequestCancel", "cancel"];
-    if (!allowedStatuses.includes(status)) {
+    const totalAmount = priceAtSale * soldQty;
+    const amountPaid = Object.entries(paymentBreakdown)
+      .filter(([method]) => method !== "credit")
+      .reduce((sum, [, value]) => sum + (Number(value) || 0), 0);
+
+    const creditAmount = totalAmount - amountPaid;
+
+    if (creditAmount < 0) {
       return NextResponse.json(
-        { success: false, message: `Invalid status. Use one of: ${allowedStatuses.join(", ")}` },
+        { success: false, message: "Paid amount exceeds total." },
         { status: 400 }
       );
     }
 
     const product = await prisma.product.findUnique({ where: { id: productId } });
-    if (!product) {
-      return NextResponse.json({ success: false, message: "Product not found." }, { status: 404 });
-    }
-
-    if (product.quantity < soldQty) {
-      return NextResponse.json(
-        { success: false, message: `Not enough stock. Only ${product.quantity} available.` },
-        { status: 400 }
-      );
-    }
+    if (!product) return NextResponse.json({ success: false, message: "Product not found." }, { status: 404 });
+    if (product.quantity < soldQty)
+      return NextResponse.json({ success: false, message: `Not enough stock. Only ${product.quantity} available.` }, { status: 400 });
 
     const stockTracker = await prisma.stockTracker.findUnique({ where: { productId } });
-    if (!stockTracker) {
+    if (!stockTracker)
       return NextResponse.json({ success: false, message: "StockTracker not found." }, { status: 404 });
-    }
 
     const today = dayjs().format("YYYY-MM-DD");
     const oldSoldTracker = stockTracker.soldTracker || {};
@@ -71,7 +73,7 @@ export async function POST(req: NextRequest) {
       soldQty,
       remainingQty: product.quantity - soldQty,
       priceAtSale,
-      paymentMethod,
+      paymentBreakdown,
       status,
       clientId,
       updatedAt: new Date().toISOString(),
@@ -89,21 +91,33 @@ export async function POST(req: NextRequest) {
       }),
       prisma.product.update({
         where: { id: productId },
-        data: {
-          quantity: { decrement: soldQty },
-        },
+        data: { quantity: { decrement: soldQty } },
       }),
     ]);
+
+    let creditRecord = null;
+
+    if (creditAmount > 0 && clientId) {
+      creditRecord = await prisma.creditTracker.create({
+        data: {
+          productId,
+          clientId,
+          qty: soldQty,
+          pricePerUnit: priceAtSale,
+          amountPaid,
+          remainingAmount: creditAmount,
+          creditDate: new Date(),
+          status: "LOANED",
+          paymentStatus: amountPaid === 0 ? "PENDING" : "PARTIALLY_PAID",
+        },
+      });
+    }
 
     if (clientId) {
       await prisma.client.update({
         where: { id: clientId },
-        data: {
-          cart: {}, // Clear the cart
-        },
-      }).catch((error) => {
-        console.error("Failed to update client cart:", error);
-      });
+        data: { cart: {} },
+      }).catch((err) => console.error("Failed to clear cart:", err));
     }
 
     return NextResponse.json(
@@ -112,6 +126,7 @@ export async function POST(req: NextRequest) {
         message: "Sale recorded successfully.",
         product: updatedProduct,
         stockTracker: updatedStock,
+        creditTracker: creditRecord,
       },
       { status: 200 }
     );
