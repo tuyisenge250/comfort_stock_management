@@ -1,80 +1,14 @@
 "use client";
 
-import React, { useState } from "react";
-import { Select, Input, message, Card, Button } from "antd";
+import React, { useEffect, useState } from "react";
+import { Select, Input, message, Button } from "antd";
 import CartDisplay from "./CartDisplay";
 import AddUser from "./AddUser";
 
-const mockData = {
-  users: [
-    {
-      id: "user-001",
-      name: "Alice",
-      telephone: "+250788123456",
-      cart: [
-        {
-          productId: "prod-101",
-          name: "T-shirt",
-          qty: 2,
-          price: 20.0,
-          category: { id: "cat-001", name: "Clothing" },
-          brand: { id: "brand-001", name: "Nike" }
-        }
-      ]
-    },
-    {
-      id: "user-002",
-      name: "Bob",
-      telephone: "+250788654321",
-      cart: []
-    }
-  ],
-  categories: [
-    {
-      id: "cat-001",
-      name: "Clothing",
-      brands: [
-        {
-          id: "brand-001",
-          name: "Nike",
-          products: [
-            {
-              id: "prod-101",
-              name: "T-shirt",
-              price: 20.0,
-              quality: 100,
-              createdAt: "2025-07-02T12:00:00Z"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: "cat-002",
-      name: "Footwear",
-      brands: [
-        {
-          id: "brand-002",
-          name: "Adidas",
-          products: [
-            {
-              id: "prod-102",
-              name: "Shoes",
-              price: 50.0,
-              quality: 80,
-              createdAt: "2025-07-01T09:00:00Z"
-            }
-          ]
-        }
-      ]
-    }
-  ]
-};
-
-
 
 const Home: React.FC = () => {
-  const [users, setUsers] = useState(mockData.users);
+  const [users, setUsers] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedUserCart, setSelectedUserCart] = useState<any[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
@@ -82,55 +16,146 @@ const Home: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [selectedProductQty, setSelectedProductQty] = useState<number>(1);
   const [selectedProductPrice, setSelectedProductPrice] = useState<number>(0);
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api";
 
-    const handleUserChange = (userId: string) => {
-    setSelectedUserId(userId);
-    const foundUser = users.find((user) => user.id === userId);
-    setSelectedUserCart(foundUser?.cart || []);
+  useEffect(() => {
+    fetchClients();
+    fetchProducts();
+  }, []);
+
+  const fetchClients = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/getallclient`);
+      const data = await res.json();
+      if (data.success) {
+        setUsers(data.clients);
+      } else {
+        message.error("Failed to load clients");
+      }
+    } catch (err) {
+      console.error("Client Fetch Error:", err);
+    }
   };
 
-  const handleAddUser = (newUser: { id: string; name: string; telephone: string }) => {
-    setUsers([...users, newUser]);
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch(`${BACKEND_URL}/getallproduct`);
+      const data = await res.json();
+      if (data.success) {
+        setProducts(data.data);
+      } else {
+      }
+    } catch (err) {
+      console.error("Product Fetch Error:", err);
+      message.error("Error fetching products");
+    }
+  };
+
+  const handleUserChange = (userId: string) => {
+  setSelectedUserId(userId);
+  const user = users.find((u) => u.id === userId);
+  const rawCart = user?.cart || {};
+
+  const flatCart: any[] = [];
+
+  Object.values(rawCart).forEach((items: any, index) => {
+    items.forEach((entry: any) => {
+      const product = products.find((p) => p.id === entry.productId);
+      if (product) {
+        flatCart.push({
+          cartId: entry.id,
+          productId: entry.productId,
+          name: product.productName,
+          qty: entry.qty,
+          price: product.unitPrice,
+          category: product.category,
+          brand: product.brand,
+          date: Object.keys(rawCart)[index], // Use the date as the key
+        });
+      }
+    });
+  });
+
+  setSelectedUserCart(flatCart);
+};
+
+
+  const handleAddUser = (newUser: any) => {
+    setUsers((prev) => [...prev, newUser]);
     setSelectedUserId(newUser.id);
     setSelectedUserCart([]);
   };
 
+ const handleAddProductToCart = async () => {
+  const product = products.find((p) => p.id === selectedProductId);
+  if (!product || !selectedUserId) return;
 
-  const handleAddProductToCart = () => {
-    const category = mockData.categories.find(c => c.id === selectedCategoryId);
-    const brand = category?.brands.find(b => b.id === selectedBrandId);
-    const product = brand?.products.find(p => p.id === selectedProductId);
-    if (!product || !brand || !category) return;
+  try {
+    const res = await fetch(`${BACKEND_URL}/addtocart`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        clientId: selectedUserId,
+        productId: product.id,
+        qty: selectedProductQty,
+      }),
+    });
+
+    const result = await res.json();
+    if (!res.ok || !result.success) {
+      message.error("Failed to add product to cart");
+      return;
+    }
 
     const updatedCart = [
       ...selectedUserCart,
       {
         productId: product.id,
-        name: product.name,
+        name: product.productName,
         qty: selectedProductQty,
         price: selectedProductPrice,
-        category: { id: category.id, name: category.name },
-        brand: { id: brand.id, name: brand.name }
-      }
+        category: product.category,
+        brand: product.brand,
+      },
     ];
+
     setSelectedUserCart(updatedCart);
-    selectedBrandId && setSelectedBrandId("");
     setSelectedProductId("");
     setSelectedProductQty(1);
-    setSelectedProductPrice(0); 
-  };
+    setSelectedProductPrice(0);
+    message.success("Product added to cart successfully");
+  } catch (error) {
+    console.error("Error adding to cart:", error);
+    message.error("An error occurred while adding product to cart");
+  }
+};
 
-  const getBrands = () =>
-    mockData.categories.find((cat) => cat.id === selectedCategoryId)?.brands || [];
 
-  const getProducts = () =>
-    getBrands().find((b) => b.id === selectedBrandId)?.products || [];
+  const categories = Array.from(
+    new Map(products.map((p) => [p.category.id, p.category])).values()
+  );
+
+  const brands = selectedCategoryId
+    ? Array.from(
+        new Map(
+          products
+            .filter((p) => p.categoryId === selectedCategoryId)
+            .map((p) => [p.brand.id, p.brand])
+        ).values()
+      )
+    : [];
+
+  const filteredProducts = selectedBrandId
+    ? products.filter((p) => p.brandId === selectedBrandId && p.categoryId === selectedCategoryId)
+    : [];
 
   const handleProductSelect = (productId: string) => {
     setSelectedProductId(productId);
-    const product = getProducts().find((p) => p.id === productId);
+    const product = products.find((p) => p.id === productId);
     if (product) {
-      setSelectedProductPrice(product.price);
+      setSelectedProductPrice(product.unitPrice);
     }
   };
 
@@ -143,50 +168,50 @@ const Home: React.FC = () => {
           style={{ width: "100%" }}
           placeholder="Search user"
           optionFilterProp="label"
-          filterSort={(a, b) => (a?.label ?? "").localeCompare(b?.label ?? "")}
           onChange={handleUserChange}
           value={selectedUserId || undefined}
           options={users.map((user) => ({
             label: user.name,
-            value: user.id
+            value: user.id,
           }))}
         />
 
         <h2 className="text-xl font-semibold mt-6 mb-2">Select Category</h2>
         <Select
-          showSearch
           style={{ width: "100%" }}
-          placeholder="Category"
+          placeholder="Select category"
           onChange={(id) => {
             setSelectedCategoryId(id);
             setSelectedBrandId("");
             setSelectedProductId("");
           }}
-          options={mockData.categories.map((cat) => ({ label: cat.name, value: cat.id }))}
+          value={selectedCategoryId || undefined}
+          options={categories.map((cat) => ({ label: cat.name, value: cat.id }))}
         />
 
         <h2 className="text-xl font-semibold mt-6 mb-2">Select Brand</h2>
         <Select
-          showSearch
           style={{ width: "100%" }}
-          placeholder="Brand"
+          placeholder="Select brand"
           onChange={(id) => {
             setSelectedBrandId(id);
             setSelectedProductId("");
           }}
           value={selectedBrandId || undefined}
-          options={getBrands().map((brand) => ({ label: brand.name, value: brand.id }))}
+          options={brands.map((b) => ({ label: b.name, value: b.id }))}
           disabled={!selectedCategoryId}
         />
 
         <h2 className="text-xl font-semibold mt-6 mb-2">Select Product</h2>
         <Select
-          showSearch
           style={{ width: "100%" }}
-          placeholder="Product"
+          placeholder="Select product"
           onChange={handleProductSelect}
           value={selectedProductId || undefined}
-          options={getProducts().map((product) => ({ label: product.name, value: product.id }))}
+          options={filteredProducts.map((p) => ({
+            label: p.productName,
+            value: p.id,
+          }))}
           disabled={!selectedBrandId}
         />
 
@@ -196,9 +221,9 @@ const Home: React.FC = () => {
           min={0}
           value={selectedProductPrice}
           onChange={(e) => setSelectedProductPrice(Number(e.target.value))}
-          placeholder="Product price"
+          placeholder="Enter price"
         />
-        <p className="mt-3"></p>
+
         <Input
           type="number"
           min={1}
@@ -219,7 +244,12 @@ const Home: React.FC = () => {
       </div>
 
       {selectedUserId ? (
-        <CartDisplay cart={selectedUserCart} />
+    <CartDisplay
+        cart={selectedUserCart}
+        clientId={selectedUserId}
+        onUpdateCart={(updated) => setSelectedUserCart(updated)}
+      />
+
       ) : (
         <AddUser onAdd={handleAddUser} />
       )}

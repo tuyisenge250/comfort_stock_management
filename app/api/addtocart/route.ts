@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import dayjs from "dayjs";
+import { randomUUID } from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const id = randomUUID();
 
     const client = await prisma.client.findUnique({ where: { id: clientId } });
 
@@ -23,7 +25,7 @@ export async function POST(req: NextRequest) {
     const oldCart = client.cart || {};
     const todayCart = oldCart[today] || [];
 
-    const newTodayCart = [...todayCart, { productId, qty }];
+    const newTodayCart = [...todayCart, { productId, qty, id }];
     const updatedCart = {
       [today]: newTodayCart,
     };
