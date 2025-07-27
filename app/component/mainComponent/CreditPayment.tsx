@@ -1,111 +1,105 @@
 "use client";
 
-import React, { useState } from "react";
-import { Input, Calendar, Card, Button, Modal, message } from "antd";
+import React, { useEffect, useState } from "react";
+import {
+  Calendar,
+  Card,
+  Input,
+  Button,
+  Modal,
+  message,
+  Select,
+  Spin,
+} from "antd";
 import type { CalendarProps } from "antd";
 import dayjs, { Dayjs } from "dayjs";
 
-interface Loan {
+interface CreditTracker {
+  id: string;
   productId: string;
   qty: number;
   pricePerUnit: number;
-  totalAmount: number;
   amountPaid: number;
   remainingAmount: number;
-  loanDate: string;
+  creditDate: string;
   status: string;
   paymentStatus: string;
 }
 
-interface UserCredit {
+interface Client {
+  id: string;
   name: string;
   telephone: string;
-  loans: Loan[];
+  creditTrackers: CreditTracker[];
 }
 
-const initialUserData: Record<string, UserCredit> = {
-  "user-456": {
-    name: "Alice",
-    telephone: "+250788123456",
-    loans: [
-      {
-        productId: "pro-234",
-        qty: 10,
-        pricePerUnit: 30.0,
-        totalAmount: 300,
-        amountPaid: 100,
-        remainingAmount: 200,
-        loanDate: "2025-06-26",
-        status: "LOANED",
-        paymentStatus: "PARTIALLY_PAID",
-      },
-    ],
-  },
-  "user-123": {
-    name: "Bob",
-    telephone: "+250788654321",
-    loans: [],
-  },
-  "user-432": {
-    name: "Aline",
-    telephone: "+250788123456",
-    loans: [
-      {
-        productId: "pro-234",
-        qty: 10,
-        pricePerUnit: 30.0,
-        totalAmount: 300,
-        amountPaid: 0,
-        remainingAmount: 300,
-        loanDate: "2025-06-26",
-        status: "LOANED",
-        paymentStatus: "PENDING",
-      },
-    ],
-  },
-};
-
 const CreditPayment: React.FC = () => {
-  const [userData, setUserData] = useState(initialUserData);
-  const [searchName, setSearchName] = useState("");
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<Dayjs | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentLoan, setCurrentLoan] = useState<{
-    userId: string;
+    clientId: string;
     loanIndex: number;
   } | null>(null);
   const [paymentInput, setPaymentInput] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api";
+
+  useEffect(() => {
+    fetchClients();
+  }, []);
+
+  const fetchClients = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/getallclient`);
+      const data = await res.json();
+      if (data.success) {
+        setClients(data.clients);
+      } else {
+        message.error("Failed to load clients.");
+      }
+    } catch (error) {
+      message.error("Error fetching clients.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredClients = clients
+    .filter((client) =>
+      selectedClientId ? client.id === selectedClientId : true
+    )
+    .filter((client) =>
+      selectedDate
+        ? client.creditTrackers.some((loan) =>
+            dayjs(loan.creditDate).isSame(selectedDate, "day")
+          )
+        : true
+    )
+    .filter((client) => client.creditTrackers.length > 0);
 
   const handleDateSelect: CalendarProps<Dayjs>["onSelect"] = (value) => {
     setSelectedDate(value);
   };
 
-  const filteredUsers = Object.entries(userData)
-    .filter(([_, user]) =>
-      searchName
-        ? user.name.toLowerCase().includes(searchName.toLowerCase())
-        : true
-    )
-    .filter(([_, user]) =>
-      selectedDate
-        ? user.loans.some((loan) =>
-            dayjs(loan.loanDate).isSame(selectedDate, "day")
-          )
-        : true
-    )
-    .filter(([_, user]) => user.loans && user.loans.length > 0);
-
-  const openPaymentModal = (userId: string, loanIndex: number) => {
-    setCurrentLoan({ userId, loanIndex });
+  const openPaymentModal = (clientId: string, loanIndex: number) => {
+    setCurrentLoan({ clientId, loanIndex });
     setPaymentInput("");
     setIsModalOpen(true);
   };
 
-  const handleOk = () => {
+  const handleOk = async () => {
+    console.log("Submitting payment for loan:", currentLoan);
     if (!currentLoan) return;
-    const { userId, loanIndex } = currentLoan;
-    const user = userData[userId];
-    const loan = user.loans[loanIndex];
+
+    const { clientId, loanIndex } = currentLoan;
+    const client = clients.find((c) => c.id === clientId);
+    if (!client) return;
+    const loan = client.creditTrackers[loanIndex];
 
     const paidAmount = parseFloat(paymentInput);
     if (isNaN(paidAmount) || paidAmount <= 0) {
@@ -118,135 +112,184 @@ const CreditPayment: React.FC = () => {
       return;
     }
 
-    const newAmountPaid = loan.amountPaid + paidAmount;
-    const newRemaining = loan.totalAmount - newAmountPaid;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${BACKEND_URL}/creditpayment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creditId: loan.id,
+          amountPaid: paidAmount,
+        }),
+      });
 
-    const newStatus =
-      newRemaining === 0 ? "PAID" : loan.paymentStatus === "PENDING" ? "PARTIALLY_PAID" : loan.paymentStatus;
+      const result = await res.json();
+      if (!res.ok || !result.success) {
+        throw new Error(result.message || "Payment failed");
+      }
 
-    const updatedUser = {
-      ...user,
-      loans: user.loans.map((l, idx) =>
-        idx === loanIndex
+      const newAmountPaid = loan.amountPaid + paidAmount;
+      const newRemaining = loan.qty * loan.pricePerUnit - newAmountPaid;
+      const paymentStatus = newRemaining <= 0 ? "PAID" : "PARTIALLY_PAID";
+
+      const updatedClients = clients.map((c) =>
+        c.id === clientId
           ? {
-              ...l,
-              amountPaid: newAmountPaid,
-              remainingAmount: newRemaining,
-              paymentStatus: newRemaining === 0 ? "PAID" : "PARTIALLY_PAID",
+              ...c,
+              creditTrackers: c.creditTrackers.map((l, idx) =>
+                idx === loanIndex
+                  ? {
+                      ...l,
+                      amountPaid: newAmountPaid,
+                      remainingAmount: newRemaining,
+                      paymentStatus,
+                    }
+                  : l
+              ),
             }
-          : l
-      ),
-    };
+          : c
+      );
 
-    setUserData((prev) => ({
-      ...prev,
-      [userId]: updatedUser,
-    }));
-
-    message.success("Payment recorded successfully.");
-    setIsModalOpen(false);
+      setClients(updatedClients);
+      setIsModalOpen(false);
+      message.success("✅ Payment recorded successfully.");
+    } catch (err) {
+      console.error(err);
+      message.error("❌ Failed to record payment.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <div className="p-4">
       <h1 className="text-2xl font-bold mb-4">Credit & Loan Payments</h1>
 
-      <div className="flex flex-col sm:flex-row gap-6 mb-6">
-        <div className="w-full sm:w-1/3">
-          <Input
-            placeholder="Search user by name"
-            value={searchName}
-            onChange={(e) => setSearchName(e.target.value)}
-            className="mb-4"
-          />
+      {loading ? (
+        <Spin size="large" />
+      ) : (
+        <div className="flex flex-col sm:flex-row gap-6 mb-6">
+          {/* Left Panel */}
+          <div className="w-full sm:w-1/3">
+            <Select
+              showSearch
+              allowClear
+              placeholder="Search client by name"
+              className="w-full mb-4"
+              onChange={(val) => setSelectedClientId(val || null)}
+              filterOption={(input, option) =>
+                (option?.label as string)
+                  .toLowerCase()
+                  .includes(input.toLowerCase())
+              }
+              options={clients.map((client) => ({
+                label: client.name,
+                value: client.id,
+              }))}
+            />
 
-          <div className="border rounded-md p-2">
             <Calendar
               fullscreen={false}
               onSelect={handleDateSelect}
               className="w-full"
             />
+
+            <Button
+              onClick={() => {
+                setSelectedClientId(null);
+                setSelectedDate(null);
+              }}
+              className="mt-4 bg-red-500 text-white"
+            >
+              Clear Filters
+            </Button>
           </div>
 
-          <button
-            className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-700 font-semibold"
-            onClick={() => {
-              setSearchName("");
-              setSelectedDate(null);
-            }}
-          >
-            Clear
-          </button>
-        </div>
+          {/* Right Panel */}
+          <div className="flex-1 space-y-4">
+            {filteredClients.length === 0 ? (
+              <p className="text-gray-500">
+                No credit or loan records match filters.
+              </p>
+            ) : (
+              filteredClients.map((client) => (
+                <Card
+                  key={client.id}
+                  title={`${client.name} (${client.telephone})`}
+                  className="shadow-md"
+                >
+                  {client.creditTrackers.map((loan, index) => (
+                    <div
+                      key={loan.id}
+                      className="border-b py-2 flex flex-col sm:flex-row justify-between sm:items-center"
+                    >
+                      <div>
+                        <p className="font-semibold">Product ID: {loan.productId}</p>
+                        <p className="text-sm">
+                          Loan Date: {dayjs(loan.creditDate).format("YYYY-MM-DD")}
+                        </p>
+                        <p className="text-sm">
+                          Qty: {loan.qty} × {loan.pricePerUnit} RWF
+                        </p>
+                        <p className="text-sm">
+                          Total: {loan.qty * loan.pricePerUnit} RWF, Paid:{" "}
+                          {loan.amountPaid} RWF, Remaining:{" "}
+                          <strong className="text-red-500">
+                            {loan.remainingAmount} RWF
+                          </strong>
+                        </p>
+                        <p className="text-sm">
+                          Status: {loan.status} - {loan.paymentStatus}
+                        </p>
+                      </div>
 
-        <div className="flex-1 space-y-4">
-          {filteredUsers.length === 0 ? (
-            <p className="text-gray-500">No users found with credit/loan.</p>
-          ) : (
-            filteredUsers.map(([userId, user]) => (
-              <Card
-                key={userId}
-                title={`${user.name} (${user.telephone})`}
-                className="shadow-sm"
-              >
-                {user.loans.map((loan, index) => (
-                  <div
-                    key={index}
-                    className="border-b py-2 flex flex-col sm:flex-row justify-between sm:items-center"
-                  >
-                    <div>
-                      <p className="font-semibold">Product: {loan.productId}</p>
-                      <p className="text-sm">Loan Date: {loan.loanDate}</p>
-                      <p className="text-sm">
-                        Qty: {loan.qty} × {loan.pricePerUnit} RWF
-                      </p>
-                      <p className="text-sm">
-                        Total: {loan.totalAmount} RWF, Paid: {loan.amountPaid} RWF, Remaining:{" "}
-                        <strong className="text-red-500">{loan.remainingAmount} RWF</strong>
-                      </p>
-                      <p className="text-sm">
-                        Status: {loan.status} - {loan.paymentStatus}
-                      </p>
+                      {loan.paymentStatus !== "PAID" ? (
+                        <Button
+                          type="primary"
+                          className="mt-3 sm:mt-0"
+                          onClick={() => openPaymentModal(client.id, index)}
+                        >
+                          Pay Now
+                        </Button>
+                      ) : (
+                        <p className="mt-3 sm:mt-0 text-green-600 font-medium">
+                          Fully Paid
+                        </p>
+                      )}
                     </div>
-
-                    {loan.paymentStatus !== "PAID" ? (
-                      <Button
-                        type="primary"
-                        className="mt-3 sm:mt-0"
-                        onClick={() => openPaymentModal(userId, index)}
-                      >
-                        Pay Now
-                      </Button>
-                    ) : (
-                      <p className="mt-3 sm:mt-0 text-green-600 font-medium">
-                        Fully Paid
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </Card>
-            ))
-          )}
+                  ))}
+                </Card>
+              ))
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
+      {/* Modal for payment */}
       <Modal
         title="Record Payment"
         open={isModalOpen}
         onOk={handleOk}
+        confirmLoading={submitting}
         onCancel={() => setIsModalOpen(false)}
+        okText="Submit"
       >
         {currentLoan && (() => {
-          const loan =
-            userData[currentLoan.userId].loans[currentLoan.loanIndex];
+          const client = clients.find((c) => c.id === currentLoan.clientId);
+          if (!client) return null;
+          const loan = client.creditTrackers[currentLoan.loanIndex];
+
           if (loan.paymentStatus === "PAID") {
             return <p>This loan has already been fully paid.</p>;
           }
+
           return (
             <div className="space-y-2">
               <p>
                 Remaining Balance:{" "}
-                <strong className="text-red-500">{loan.remainingAmount} RWF</strong>
+                <strong className="text-red-500">
+                  {loan.remainingAmount} RWF
+                </strong>
               </p>
               <Input
                 type="number"

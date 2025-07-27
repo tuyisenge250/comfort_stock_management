@@ -112,6 +112,7 @@ const CartDisplay: React.FC<CartDisplayProps> = ({ cart, clientId, onUpdateCart 
 
       message.success("Sales submitted successfully!");
       setIsModalOpen(false);
+      setPaymentBreakdown({});
       onUpdateCart([]);
     } catch (err) {
       console.error("Checkout Error:", err);
