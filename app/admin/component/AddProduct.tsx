@@ -1,189 +1,162 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Form, Input, Button, Select, Divider, message } from "antd";
-import { v4 as uuidv4 } from "uuid";
 
 const { Option } = Select;
 
 interface Product {
   id: string;
-  name: string;
-  category: string;
-  brand: string;
-  price: number;
-  quality: string | number;
+  productName: string;
+  unitPrice: number;
   quantity: number;
-  createdAt: string;
+  category: {
+    id: string;
+    name: string;
+  };
+  brand: {
+    id: string;
+    name: string;
+  };
+}
+
+interface ApiResponse {
+  success: boolean;
+  data: Product[];
 }
 
 const AddProductPage = () => {
   const [form] = Form.useForm();
-
-  // Initial data
-  const initialProducts: Product[] = [
-    {
-      id: uuidv4(),
-      name: "t-shirt",
-      category: "clothing",
-      brand: "nike",
-      price: 20000,
-      quality: 8,
-      quantity: 15,
-      createdAt: new Date().toISOString(),
-    },
-    {
-      id: uuidv4(),
-      name: "jacket",
-      category: "clothing",
-      brand: "adidas",
-      price: 40000,
-      quality: 9,
-      quantity: 10,
-      createdAt: new Date().toISOString(),
-    },
-  ];
-
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-
-  const [categoryBrandMap, setCategoryBrandMap] = useState<Record<string, string[]>>({
-    clothing: ["nike", "adidas"],
-  });
-
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categoryBrandMap, setCategoryBrandMap] = useState<Record<string, string[]>>({});
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedBrand, setSelectedBrand] = useState("");
   const [brandOptions, setBrandOptions] = useState<string[]>([]);
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [existingProduct, setExistingProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api";
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/getallproduct`);
+        const data: ApiResponse = await res.json();
+        
+        if (data.success) {
+          setProducts(data.data);
+
+          const newCategoryBrandMap: Record<string, string[]> = {};
+          data.data.forEach((product) => {
+            const categoryName = product.category.name.toLowerCase();
+            const brandName = product.brand.name.toLowerCase();
+            
+            if (!newCategoryBrandMap[categoryName]) {
+              newCategoryBrandMap[categoryName] = [];
+            }
+            
+            if (!newCategoryBrandMap[categoryName].includes(brandName)) {
+              newCategoryBrandMap[categoryName].push(brandName);
+            }
+          });
+          
+          setCategoryBrandMap(newCategoryBrandMap);
+        }
+      } catch (error) {
+        console.error("Failed to fetch products:", error);
+        message.error("Failed to load products");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   const handleCategoryChange = (value: string) => {
     const key = value.toLowerCase();
     setSelectedCategory(key);
     setBrandOptions(categoryBrandMap[key] || []);
     setSelectedBrand("");
-    form.setFieldsValue({ brand: undefined, product: undefined, price: undefined, quality: undefined });
+    form.setFieldsValue({ brand: undefined, product: undefined, unitPrice: undefined });
     setProductOptions([]);
     setExistingProduct(null);
   };
-
-  const handleCategoryAdd = (input: string) => {
-    const key = input.toLowerCase();
-    if (!categoryBrandMap[key]) {
-      setCategoryBrandMap((prev) => ({ ...prev, [key]: [] }));
-      setBrandOptions([]);
-    }
-    setSelectedCategory(key);
-  };
-
+  console.log(products)
   const handleBrandChange = (value: string) => {
     const brand = value.toLowerCase();
     setSelectedBrand(brand);
-    form.setFieldsValue({ product: undefined, price: undefined, quality: undefined });
+    form.setFieldsValue({ product: undefined, unitPrice: undefined });
+
     const names = products
-      .filter((p) => p.category === selectedCategory && p.brand === brand)
-      .map((p) => p.name);
+      .filter(p => 
+        p.category.name.toLowerCase() === selectedCategory && 
+        p.brand.name.toLowerCase() === brand
+      )
+      .map(p => p.productName);
+      
     setProductOptions(names);
     setExistingProduct(null);
-  };
-
-  const handleBrandAdd = (input: string) => {
-    const brand = input.toLowerCase();
-    if (!selectedCategory) {
-      message.warning("Select category first.");
-      return;
-    }
-    setCategoryBrandMap((prev) => {
-      const updated = {
-        ...prev,
-        [selectedCategory]: Array.from(new Set([...(prev[selectedCategory] || []), brand])),
-      };
-      setBrandOptions(updated[selectedCategory]);
-      return updated;
-    });
-    setSelectedBrand(brand);
   };
 
   const handleProductChange = (value: string) => {
     const name = value.toLowerCase();
     const found = products.find(
-      (p) =>
-        p.name === name &&
-        p.category === selectedCategory &&
-        p.brand === selectedBrand
+      p =>
+        p.productName.toLowerCase() === name &&
+        p.category.name.toLowerCase() === selectedCategory &&
+        p.brand.name.toLowerCase() === selectedBrand
     );
+    
     if (found) {
       setExistingProduct(found);
       form.setFieldsValue({
-        price: found.price,
-        quality: found.quality,
+        unitPrice: found.unitPrice,
+        quantity: 1 // Default quantity when selecting existing product
       });
     } else {
       setExistingProduct(null);
-      form.setFieldsValue({ price: undefined, quality: undefined });
+      form.setFieldsValue({ unitPrice: undefined, quantity: 1 });
     }
   };
 
-  const handleProductAdd = (input: string) => {
-    const name = input.toLowerCase();
-    if (!selectedCategory || !selectedBrand) {
-      message.warning("Select category and brand first.");
-      return;
-    }
-    const existingNames = products
-      .filter((p) => p.category === selectedCategory && p.brand === selectedBrand)
-      .map((p) => p.name.toLowerCase());
-    if (!existingNames.includes(name)) {
-      setProductOptions((prev) => Array.from(new Set([...prev, name])));
-      form.setFieldsValue({ product: name });
-    }
-    setExistingProduct(null);
-  };
-
-  const onFinish = (values: any) => {
-    const name = values.product.toLowerCase();
-    const category = values.category.toLowerCase();
-    const brand = values.brand.toLowerCase();
-    const price = parseFloat(values.price);
-    // Accept quality as string or number
-    const quality = values.quality;
-    const quantity = parseInt(values.quantity, 10);
-
-    const existingIndex = products.findIndex(
-      (p) => p.name === name && p.category === category && p.brand === brand
-    );
-
-    if (existingIndex !== -1) {
-      const updated = [...products];
-      updated[existingIndex].quantity += quantity;
-      updated[existingIndex].price = price;
-      updated[existingIndex].quality = quality;
-      setProducts(updated);
-      message.success("Product quantity updated.");
-    } else {
-      const newProduct: Product = {
-        id: uuidv4(),
-        name,
-        category,
-        brand,
-        price,
-        quality,
-        quantity,
-        createdAt: new Date().toISOString(),
+  const onFinish = async (values: any) => {
+    try {
+      const productData = {
+        productName: values.product,
+        categoryName: values.category,
+        brandName: values.brand,
+        unitPrice: parseFloat(values.unitPrice),
+        quantity: parseInt(values.quantity, 10)
       };
-      setProducts([...products, newProduct]);
 
-      setCategoryBrandMap((prev) => ({
-        ...prev,
-        [category]: Array.from(new Set([...(prev[category] || []), brand])),
-      }));
+      const res = await fetch(`${BACKEND_URL}/admin/addproduct`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(productData),
+      });
 
-      message.success("New product added.");
+      const response = await res.json();
+
+      if (response.success) {
+        message.success("Product saved successfully");
+        // Refresh the product list
+        const refreshRes = await fetch(`${BACKEND_URL}/getallproduct`);
+        const refreshData: ApiResponse = await refreshRes.json();
+        setProducts(refreshData.data);
+        form.resetFields();
+      } else {
+        throw new Error(response.message || "Failed to save product");
+      }
+    } catch (err) {
+      console.error(err);
+      message.error(err instanceof Error ? err.message : "Failed to save product");
     }
-
-    form.resetFields();
-    setExistingProduct(null);
-    setProductOptions([]);
   };
+
+  if (loading) {
+    return <div className="p-6 max-w-xl mx-auto text-center">Loading products...</div>;
+  }
 
   return (
     <div className="p-6 max-w-xl mx-auto bg-white shadow rounded-md mt-8">
@@ -193,16 +166,12 @@ const AddProductPage = () => {
         <Form.Item name="category" label="Category" rules={[{ required: true }]}>
           <Select
             showSearch
-            placeholder="Select or create category"
+            placeholder="Select category"
             onChange={handleCategoryChange}
-            onSearch={handleCategoryAdd}
             options={Object.keys(categoryBrandMap).map((cat) => ({
               value: cat,
               label: cat,
             }))}
-            filterOption={(input, option) =>
-              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-            }
             allowClear
           />
         </Form.Item>
@@ -210,14 +179,10 @@ const AddProductPage = () => {
         <Form.Item name="brand" label="Brand" rules={[{ required: true }]}>
           <Select
             showSearch
-            placeholder="Select or create brand"
+            placeholder="Select brand"
             disabled={!selectedCategory}
             onChange={handleBrandChange}
-            onSearch={handleBrandAdd}
             options={brandOptions.map((b) => ({ value: b, label: b }))}
-            filterOption={(input, option) =>
-              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-            }
             allowClear
           />
         </Form.Item>
@@ -225,45 +190,23 @@ const AddProductPage = () => {
         <Form.Item name="product" label="Product" rules={[{ required: true }]}>
           <Select
             showSearch
-            placeholder="Enter or choose product"
+            placeholder="Choose product"
             disabled={!selectedBrand}
             onChange={handleProductChange}
-            onSearch={handleProductAdd}
             options={productOptions.map((p) => ({ value: p, label: p }))}
-            filterOption={(input, option) =>
-              (option?.label ?? "").toLowerCase().includes(input.toLowerCase())
-            }
             allowClear
           />
         </Form.Item>
 
-        <Form.Item name="price" label="Price (RWF)" rules={[{ required: true }]}>
+        <Form.Item name="unitPrice" label="Price (RWF)" rules={[{ required: true }]}>
           <Input type="number" placeholder="e.g. 15000" min={0} />
         </Form.Item>
 
         <Form.Item
-          name="quality"
-          label="Quality (number or string)"
-          rules={[{ required: true }]}
-        >
-          <Select
-            showSearch
-            mode="tags"
-            placeholder="Enter or select quality (1–10 or text like 'excellent')"
-            maxTagCount={1}
-            open={false}
-            onChange={(value) => {
-              if (Array.isArray(value)) {
-                form.setFieldsValue({ quality: value[0] });
-              }
-            }}
-          />
-        </Form.Item>
-
-        <Form.Item
           name="quantity"
-          label="Quantity to Add"
+          label="Quantity"
           rules={[{ required: true, min: 1 }]}
+          initialValue={1}
         >
           <Input type="number" min={1} />
         </Form.Item>

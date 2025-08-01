@@ -16,7 +16,7 @@ const Home: React.FC = () => {
   const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [selectedProductQty, setSelectedProductQty] = useState<number>(1);
   const [selectedProductPrice, setSelectedProductPrice] = useState<number>(0);
-  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api";
+  const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL //|| "http://localhost:3000/api";
 
   useEffect(() => {
     fetchClients();

@@ -19,7 +19,7 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
-
+    console.log("Received product data:", body);
     const [category, brand] = await Promise.all([
       prisma.category.upsert({
         where: { name: categoryName },
