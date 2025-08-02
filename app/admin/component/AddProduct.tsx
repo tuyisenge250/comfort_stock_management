@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { Form, Input, Button, Select, Divider, message } from "antd";
+import { Form, Input, Button, Select, Divider, message, Tag } from "antd";
+import { PlusOutlined } from "@ant-design/icons";
 
 const { Option } = Select;
 
@@ -35,6 +36,9 @@ const AddProductPage = () => {
   const [productOptions, setProductOptions] = useState<string[]>([]);
   const [existingProduct, setExistingProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
+  const [newCategory, setNewCategory] = useState("");
+  const [newBrand, setNewBrand] = useState("");
+  const [newProduct, setNewProduct] = useState("");
   const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:3000/api";
 
   useEffect(() => {
@@ -82,7 +86,7 @@ const AddProductPage = () => {
     setProductOptions([]);
     setExistingProduct(null);
   };
-  console.log(products)
+
   const handleBrandChange = (value: string) => {
     const brand = value.toLowerCase();
     setSelectedBrand(brand);
@@ -145,12 +149,61 @@ const AddProductPage = () => {
         const refreshData: ApiResponse = await refreshRes.json();
         setProducts(refreshData.data);
         form.resetFields();
+        setSelectedCategory("");
+        setSelectedBrand("");
+        setNewCategory("");
+        setNewBrand("");
+        setNewProduct("");
       } else {
         throw new Error(response.message || "Failed to save product");
       }
     } catch (err) {
       console.error(err);
       message.error(err instanceof Error ? err.message : "Failed to save product");
+    }
+  };
+
+  const handleNewCategory = () => {
+    if (newCategory) {
+      const lowerCaseCategory = newCategory.toLowerCase();
+      if (!categoryBrandMap[lowerCaseCategory]) {
+        setCategoryBrandMap({
+          ...categoryBrandMap,
+          [lowerCaseCategory]: []
+        });
+        form.setFieldsValue({ category: lowerCaseCategory });
+        setSelectedCategory(lowerCaseCategory);
+        setBrandOptions([]);
+      }
+      setNewCategory("");
+    }
+  };
+
+  const handleNewBrand = () => {
+    if (newBrand && selectedCategory) {
+      const lowerCaseBrand = newBrand.toLowerCase();
+      if (!brandOptions.includes(lowerCaseBrand)) {
+        const updatedCategoryBrandMap = {
+          ...categoryBrandMap,
+          [selectedCategory]: [...(categoryBrandMap[selectedCategory] || []), lowerCaseBrand]
+        };
+        setCategoryBrandMap(updatedCategoryBrandMap);
+        setBrandOptions([...brandOptions, lowerCaseBrand]);
+        form.setFieldsValue({ brand: lowerCaseBrand });
+        setSelectedBrand(lowerCaseBrand);
+      }
+      setNewBrand("");
+    }
+  };
+
+  const handleNewProduct = () => {
+    if (newProduct && selectedBrand) {
+      const lowerCaseProduct = newProduct.toLowerCase();
+      if (!productOptions.includes(lowerCaseProduct)) {
+        setProductOptions([...productOptions, lowerCaseProduct]);
+        form.setFieldsValue({ product: lowerCaseProduct });
+      }
+      setNewProduct("");
     }
   };
 
@@ -166,35 +219,103 @@ const AddProductPage = () => {
         <Form.Item name="category" label="Category" rules={[{ required: true }]}>
           <Select
             showSearch
-            placeholder="Select category"
+            placeholder="Select or add a category"
             onChange={handleCategoryChange}
             options={Object.keys(categoryBrandMap).map((cat) => ({
               value: cat,
               label: cat,
             }))}
             allowClear
+            popupRender={(menu) => (
+              <>
+                {menu}
+                <Divider style={{ margin: '8px 0' }} />
+                <div style={{ display: 'flex', flexWrap: 'nowrap', padding: 8 }}>
+                  <Input
+                    style={{ flex: 'auto' }}
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                    placeholder="New category name"
+                  />
+                  <Button
+                    type="text"
+                    icon={<PlusOutlined />}
+                    onClick={handleNewCategory}
+                    disabled={!newCategory.trim()}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </>
+            )}
           />
         </Form.Item>
 
         <Form.Item name="brand" label="Brand" rules={[{ required: true }]}>
           <Select
             showSearch
-            placeholder="Select brand"
+            placeholder="Select or add a brand"
             disabled={!selectedCategory}
             onChange={handleBrandChange}
             options={brandOptions.map((b) => ({ value: b, label: b }))}
             allowClear
+            popupRender={(menu) => (
+              <>
+                {menu}
+                <Divider style={{ margin: '8px 0' }} />
+                <div style={{ display: 'flex', flexWrap: 'nowrap', padding: 8 }}>
+                  <Input
+                    style={{ flex: 'auto' }}
+                    value={newBrand}
+                    onChange={(e) => setNewBrand(e.target.value)}
+                    placeholder="New brand name"
+                    disabled={!selectedCategory}
+                  />
+                  <Button
+                    type="text"
+                    icon={<PlusOutlined />}
+                    onClick={handleNewBrand}
+                    disabled={!newBrand.trim() || !selectedCategory}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </>
+            )}
           />
         </Form.Item>
 
         <Form.Item name="product" label="Product" rules={[{ required: true }]}>
           <Select
             showSearch
-            placeholder="Choose product"
+            placeholder="Select or add a product"
             disabled={!selectedBrand}
             onChange={handleProductChange}
             options={productOptions.map((p) => ({ value: p, label: p }))}
             allowClear
+            popupRender={(menu) => (
+              <>
+                {menu}
+                <Divider style={{ margin: '8px 0' }} />
+                <div style={{ display: 'flex', flexWrap: 'nowrap', padding: 8 }}>
+                  <Input
+                    style={{ flex: 'auto' }}
+                    value={newProduct}
+                    onChange={(e) => setNewProduct(e.target.value)}
+                    placeholder="New product name"
+                    disabled={!selectedBrand}
+                  />
+                  <Button
+                    type="text"
+                    icon={<PlusOutlined />}
+                    onClick={handleNewProduct}
+                    disabled={!newProduct.trim() || !selectedBrand}
+                  >
+                    Add
+                  </Button>
+                </div>
+              </>
+            )}
           />
         </Form.Item>
 
