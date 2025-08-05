@@ -14,6 +14,7 @@ const CancelSellApproval = React.lazy(() => import('./CancelSellApproval'));
 const AddProductPage = React.lazy(() => import('./AddProduct'));
 const SellReportAdmin = React.lazy(() => import('./SellReport'));
 const CreditReport = React.lazy(() => import('./CreditReport'));
+import AddNewUser from './AddNewUser';
 
 const { Header, Sider, Content } = Layout;
 
@@ -24,7 +25,7 @@ const DashboardLayout = () => {
   const [selectedKey, setSelectedKey] = useState('1');
   const [isSiderVisible, setIsSiderVisible] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-
+  
   const {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
@@ -89,10 +90,15 @@ const DashboardLayout = () => {
       icon: <BookCheck size={20} aria-hidden="true" />,
       label: 'Add Product',
     },
+    {
+      key: '6',
+      icon: <CircleUserRound size={20} aria-hidden="true" />,
+      label: 'Add User',
+    },
   ], []);
 
   const profileItem = useMemo<MenuItem>(() => ({
-    key: '6',
+    key: '7',
     icon: <CircleUserRound size={20} color='orange' aria-hidden="true" />,
     label: <span className="text-orange-300">Profile</span>,
     className: 'profile-menu-item'
@@ -105,6 +111,7 @@ const DashboardLayout = () => {
       case '3': return <SellReportAdmin />;
       case '4': return <CreditReport />;
       case '5': return <AddProductPage />;
+      case '6': return <AddNewUser />;
       default: return <Home setSelectedKey={setSelectedKey} />;
     }
   };
@@ -116,10 +123,15 @@ const DashboardLayout = () => {
       case '3': return 'Sell Report';
       case '4': return 'Credit Report';
       case '5': return 'Add Product';
-      case '6': return 'Profile';
+      case '6': return 'Add User';
+      case '7': return 'Profile';
       default: return '';
     }
   };
+   function handleLogout() {
+    
+     // Perform logout logic here
+   }
 
   return (
     <Layout className="min-h-screen">
@@ -208,7 +220,7 @@ const DashboardLayout = () => {
             {getPageTitle()}
           </div>
           
-          <Link href="/admin" passHref legacyBehavior>
+          <Link href="/" passHref>
             <button 
               className="text-blue-600 hover:text-blue-800"
               aria-label="Switch to Sell panel"
@@ -216,6 +228,13 @@ const DashboardLayout = () => {
               Switch to sell
             </button>
           </Link>
+            <button 
+              className="text-blue-600 hover:text-blue-800"
+              aria-label="Switch to Sell panel"
+
+            >
+              Logout
+            </button>
         </Header>
 
         <Content
