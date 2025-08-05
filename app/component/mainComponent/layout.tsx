@@ -1,18 +1,22 @@
 "use client"
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Luggage, RefreshCwOff, Proportions, HandCoins, BookCheck, CircleUserRound } from 'lucide-react';
 import { MenuFoldOutlined, MenuUnfoldOutlined } from '@ant-design/icons';
 import { Layout, Menu, theme } from 'antd';
 import type { MenuProps } from 'antd';
 import logo from "./../../../public/logo.jpeg"
 import Image from 'next/image';
-import Home from './Home';
-import CancelSell from './CancelSell';
-import SellReport from './SellReport';
-import CreditPayment from './CreditPayment';
+import Link from 'next/link';
+
+// Lazy load content components
+const Home = React.lazy(() => import('./Home'));
+const CancelSell = React.lazy(() => import('./CancelSell'));
+const SellReport = React.lazy(() => import('./SellReport'));
+const CreditPayment = React.lazy(() => import('./CreditPayment'));
 
 const { Header, Sider, Content } = Layout;
 
+type MenuItem = Required<MenuProps>['items'][number];
 
 const DashboardLayout = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -24,6 +28,7 @@ const DashboardLayout = () => {
     token: { colorBgContainer, borderRadiusLG },
   } = theme.useToken();
 
+  // Custom hook for mobile detection would be better here
   useEffect(() => {
     const handleResize = () => {
       const mobile = window.innerWidth <= 768;
@@ -37,9 +42,7 @@ const DashboardLayout = () => {
     };
 
     handleResize();
-    
     window.addEventListener('resize', handleResize);
-    
     return () => window.removeEventListener('resize', handleResize);
   }, [isMobile]);
 
@@ -59,42 +62,65 @@ const DashboardLayout = () => {
     setCollapsed(!collapsed);
   };
 
-  const menuItems = [
+  // Memoize menu items to prevent unnecessary re-renders
+  const menuItems = useMemo<MenuItem[]>(() => [
     {
       key: '1',
-      icon: <Luggage size={20}/>,
+      icon: <Luggage size={20} aria-hidden="true" />,
       label: 'Sell Product',
     },
     {
       key: '2',
-      icon: <RefreshCwOff size={20}/>,
+      icon: <RefreshCwOff size={20} aria-hidden="true" />,
       label: 'Cancel Sell',
     },
     {
       key: '3',
-      icon: <Proportions size={20}/>,
+      icon: <Proportions size={20} aria-hidden="true" />,
       label: 'Sell Report',
     },
     {
       key: '4',
-      icon: <HandCoins size={20} />,
+      icon: <HandCoins size={20} aria-hidden="true" />,
       label: 'Credit Payment',
     },
-  ];
+  ], []);
 
-  const profileItem = {
+  const profileItem = useMemo<MenuItem>(() => ({
     key: '6',
-    icon: <CircleUserRound size={20} color='orange'/>,
+    icon: <CircleUserRound size={20} color='orange' aria-hidden="true" />,
     label: <span className="text-orange-300">Profile</span>,
     className: 'profile-menu-item'
+  }), []);
+
+  const getContentComponent = () => {
+    switch (selectedKey) {
+      case '1': return <Home />;
+      case '2': return <CancelSell />;
+      case '3': return <SellReport />;
+      case '4': return <CreditPayment />;
+      default: return <Home />;
+    }
+  };
+
+  const getPageTitle = () => {
+    switch (selectedKey) {
+      case '1': return 'Home';
+      case '2': return 'Sell Cancel';
+      case '3': return 'Sell Report';
+      case '4': return 'Credit Payment';
+      case '6': return 'Profile';
+      default: return '';
+    }
   };
 
   return (
     <Layout className="min-h-screen">
       {isMobile && isSiderVisible && (
         <div 
-          className="fixed inset-0 bg-black bg-blue-500/15 backdrop-blur-sm z-20"
+          className="fixed inset-0 bg-black bg-opacity-15 backdrop-blur-sm z-20"
           onClick={() => setIsSiderVisible(false)}
+          role="presentation"
         />
       )}
 
@@ -110,14 +136,16 @@ const DashboardLayout = () => {
         style={{ backgroundColor: '#2563eb' }}
         width={200}
         collapsedWidth={isMobile ? 0 : 80}
+        aria-label="Main navigation"
       >
         <div className='bg-white w-full flex justify-center items-center'>
           <Image 
             src={logo} 
             width={isMobile ? 100 : collapsed ? 50 : 100} 
-            alt='logo image' 
+            alt='Company logo' 
             height={isMobile ? 80 : collapsed ? 50 : 80} 
             className="object-contain py-2" 
+            priority
           />
         </div>
         
@@ -129,6 +157,7 @@ const DashboardLayout = () => {
           selectedKeys={[selectedKey]}
           onClick={handleMenuClick}
           items={menuItems}
+          role="navigation"
         />
         
         <div className='absolute bottom-0 left-0 right-0'>
@@ -145,7 +174,7 @@ const DashboardLayout = () => {
 
       <Layout>
         <Header
-          className="sticky top-0 z-10 w-full flex items-center shadow-sm"
+          className="sticky top-0 z-10 w-full flex items-center justify-between shadow-sm"
           style={{
             background: colorBgContainer,
             padding: '0 16px',
@@ -167,14 +196,20 @@ const DashboardLayout = () => {
                 <MenuFoldOutlined style={{ fontSize: 24 }} />)
             }
           </button>
-
-          <div className="ml-4 text-lg font-medium">
-            {selectedKey === '1' ? 'Home' : 
-             selectedKey === '2' ? 'sell Cancel' :
-             selectedKey === '3' ? 'Sell Report' :
-             selectedKey === '4' ? 'Credit Payment' :
-             selectedKey === '6' ? 'Profile' : ''}
+          
+          <div className="ml-4 text-lg font-medium flex-1">
+            {getPageTitle()}
           </div>
+          
+          <Link href="/admin" passHref>
+            <button 
+              className="text-blue-600 hover:text-blue-800"
+              aria-label="Switch to admin panel"
+            >
+              Switch to admin
+            </button>
+          </Link>
+
         </Header>
 
         <Content
@@ -186,11 +221,9 @@ const DashboardLayout = () => {
             minHeight: "calc(100vh - 64px - 32px)",
           }}
         >
-          {selectedKey === '1' ? <Home /> :
-           selectedKey === '2' ? <CancelSell/> :
-           selectedKey === '3' ? <SellReport /> :
-           selectedKey === '4' ? <CreditPayment /> :
-           <Home />}
+          <React.Suspense fallback={<div>Loading...</div>}>
+            {getContentComponent()}
+          </React.Suspense>
         </Content>
       </Layout>
     </Layout>

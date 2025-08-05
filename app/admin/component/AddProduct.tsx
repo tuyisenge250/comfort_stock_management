@@ -116,7 +116,7 @@ const AddProductPage = () => {
       setExistingProduct(found);
       form.setFieldsValue({
         unitPrice: found.unitPrice,
-        quantity: 1 // Default quantity when selecting existing product
+        quantity: 1 
       });
     } else {
       setExistingProduct(null);
